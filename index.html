@@ -4,13 +4,19 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>GIF Gallery</title>
+  <title>Onion Head Gifs Gallery</title>
   <style>
     body {
       font-family: Arial, sans-serif;
       max-width: 1200px;
       margin: 0 auto;
       padding: 20px;
+      background-color: #f0f0f0;
+    }
+
+    h1 {
+      text-align: center;
+      color: #333;
     }
 
     .gallery {
@@ -21,11 +27,58 @@
 
     .gif-container {
       cursor: pointer;
+      position: relative;
+      overflow: hidden;
+      border-radius: 10px;
+      box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+      transition: transform 0.3s ease, box-shadow 0.3s ease;
+      aspect-ratio: 1 / 1;
+      /* This creates a square container */
+    }
+
+    .gif-container:hover {
+      transform: translateY(-5px);
+      box-shadow: 0 6px 12px rgba(0, 0, 0, 0.15);
+    }
+
+    .gif-container::after {
+      content: 'Click to copy URL';
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      background-color: rgba(0, 0, 0, 0.7);
+      color: white;
+      padding: 8px;
+      font-size: 14px;
+      text-align: center;
+      opacity: 0;
+      transition: opacity 0.3s ease;
+    }
+
+    .gif-container:hover::after {
+      opacity: 1;
+    }
+
+    .gif-container.selected {
+      outline: 4px solid #4CAF50;
+    }
+
+    .gif-container.selected::after {
+      content: 'URL copied!';
+      background-color: #4CAF50;
+      opacity: 1;
     }
 
     img {
-      max-width: 100%;
-      height: auto;
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      /* This makes the image cover the entire container */
+      object-position: center;
+      /* This centers the image within the container */
+      display: block;
+      border-radius: 10px;
     }
   </style>
 </head>
@@ -38,42 +91,83 @@
     const gifFolder = 'gifs/';
     const gallery = document.getElementById('gifGallery');
 
-    // Function to load and display GIFs
     async function loadGifs() {
       try {
-        const response = await fetch(gifFolder);
-        const data = await response.text();
-        const parser = new DOMParser();
-        const htmlDoc = parser.parseFromString(data, 'text/html');
-        const files = htmlDoc.getElementsByTagName('a');
-
-        for (let file of files) {
-          const fileName = file.getAttribute('href');
-          if (fileName.endsWith('.gif')) {
-            const imgContainer = document.createElement('div');
-            imgContainer.className = 'gif-container';
-            const img = document.createElement('img');
-            img.src = gifFolder + fileName;
-            img.alt = fileName;
-            imgContainer.appendChild(img);
-            gallery.appendChild(imgContainer);
-
-            imgContainer.addEventListener('click', () => copyUrl(fileName));
-          }
+        const response = await fetch('list_gifs.php');
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
         }
+        const data = await response.json();
+
+        if (data.error) {
+          throw new Error(data.error);
+        }
+
+        if (data.length === 0) {
+          gallery.innerHTML = '<p>No GIFs found in the gallery.</p>';
+          return;
+        }
+
+        data.forEach(fileName => {
+          const imgContainer = document.createElement('div');
+          imgContainer.className = 'gif-container';
+          const img = document.createElement('img');
+          img.src = gifFolder + fileName;
+          img.alt = fileName;
+          imgContainer.appendChild(img);
+          gallery.appendChild(imgContainer);
+
+          imgContainer.addEventListener('click', () => copyUrl(fileName, imgContainer));
+        });
       } catch (error) {
         console.error('Error loading GIFs:', error);
+        gallery.innerHTML = `<p>Error loading GIFs: ${error.message}</p>`;
       }
     }
 
-    // Function to copy URL to clipboard
-    function copyUrl(fileName) {
+    function copyUrl(fileName, imgContainer) {
       const url = window.location.href + gifFolder + fileName;
-      navigator.clipboard.writeText(url).then(() => {
-        alert('GIF URL copied to clipboard!');
-      }).catch(err => {
-        console.error('Error copying URL:', err);
-      });
+
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(url).then(() => {
+          showCopiedFeedback(imgContainer);
+        }).catch(err => {
+          console.error('Error copying URL:', err);
+          fallbackCopyTextToClipboard(url, imgContainer);
+        });
+      } else {
+        fallbackCopyTextToClipboard(url, imgContainer);
+      }
+    }
+
+    function fallbackCopyTextToClipboard(text, imgContainer) {
+      const textArea = document.createElement("textarea");
+      textArea.value = text;
+      textArea.style.position = "fixed";
+      document.body.appendChild(textArea);
+      textArea.focus();
+      textArea.select();
+
+      try {
+        const successful = document.execCommand('copy');
+        if (successful) {
+          showCopiedFeedback(imgContainer);
+        } else {
+          throw new Error('Copy command was unsuccessful');
+        }
+      } catch (err) {
+        console.error('Fallback: Oops, unable to copy', err);
+        alert('Failed to copy URL. Please try again or copy it manually.');
+      }
+
+      document.body.removeChild(textArea);
+    }
+
+    function showCopiedFeedback(imgContainer) {
+      imgContainer.classList.add('selected');
+      setTimeout(() => {
+        imgContainer.classList.remove('selected');
+      }, 2000); // Remove the 'selected' class after 2 seconds
     }
 
     // Load GIFs when the page is ready
