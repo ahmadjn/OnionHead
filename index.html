@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>GIF Gallery</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 20px;
+    }
+
+    .gallery {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+      gap: 20px;
+    }
+
+    .gif-container {
+      cursor: pointer;
+    }
+
+    img {
+      max-width: 100%;
+      height: auto;
+    }
+  </style>
+</head>
+
+<body>
+  <h1>GIF Gallery</h1>
+  <div class="gallery" id="gifGallery"></div>
+
+  <script>
+    const gifFolder = '/gifs';
+    const gallery = document.getElementById('gifGallery');
+
+    // Function to load and display GIFs
+    async function loadGifs() {
+      try {
+        const response = await fetch(gifFolder);
+        const data = await response.text();
+        const parser = new DOMParser();
+        const htmlDoc = parser.parseFromString(data, 'text/html');
+        const files = htmlDoc.getElementsByTagName('a');
+
+        for (let file of files) {
+          const fileName = file.getAttribute('href');
+          if (fileName.endsWith('.gif')) {
+            const imgContainer = document.createElement('div');
+            imgContainer.className = 'gif-container';
+            const img = document.createElement('img');
+            img.src = gifFolder + fileName;
+            img.alt = fileName;
+            imgContainer.appendChild(img);
+            gallery.appendChild(imgContainer);
+
+            imgContainer.addEventListener('click', () => copyUrl(fileName));
+          }
+        }
+      } catch (error) {
+        console.error('Error loading GIFs:', error);
+      }
+    }
+
+    // Function to copy URL to clipboard
+    function copyUrl(fileName) {
+      const url = window.location.href + gifFolder + fileName;
+      navigator.clipboard.writeText(url).then(() => {
+        alert('GIF URL copied to clipboard!');
+      }).catch(err => {
+        console.error('Error copying URL:', err);
+      });
+    }
+
+    // Load GIFs when the page is ready
+    document.addEventListener('DOMContentLoaded', loadGifs);
+  </script>
+</body>
+
+</html>
